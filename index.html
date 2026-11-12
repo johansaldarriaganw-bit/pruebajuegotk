@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎈 BALLOONS POP v8</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100vw; height: 100vh;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Oswald', sans-serif;
+  }
+
+  #game {
+    position: absolute;
+    top: 0; left: 0;
+    width: 405px;
+    height: 720px;
+    overflow: hidden;
+    transform-origin: top left;
+    background: linear-gradient(180deg, #5ec8ff 0%, #9be0ff 55%, #d8f4ff 100%);
+  }
+
+  /* ── NUBES ── */
+  .cloud {
+    position: absolute; background: #ffffffcc; border-radius: 50px;
+    filter: blur(0.5px);
+  }
+  .cloud::before, .cloud::after {
+    content: ''; position: absolute; background: #ffffffcc; border-radius: 50%;
+  }
+  .cloud.c1 { width: 90px; height: 26px; top: 120px; left: 30px; animation: drift 38s linear infinite; }
+  .cloud.c1::before { width: 38px; height: 38px; top: -18px; left: 14px; }
+  .cloud.c1::after  { width: 28px; height: 28px; top: -12px; left: 46px; }
+  .cloud.c2 { width: 70px; height: 20px; top: 300px; left: 260px; animation: drift 52s linear infinite reverse; }
+  .cloud.c2::before { width: 30px; height: 30px; top: -14px; left: 10px; }
+  .cloud.c2::after  { width: 22px; height: 22px; top: -9px; left: 36px; }
+  .cloud.c3 { width: 80px; height: 22px; top: 480px; left: 140px; animation: drift 44s linear infinite; }
+  .cloud.c3::before { width: 34px; height: 34px; top: -16px; left: 12px; }
+  .cloud.c3::after  { width: 26px; height: 26px; top: -10px; left: 40px; }
+  @keyframes drift {
+    0%   { transform: translateX(-40px); }
+    50%  { transform: translateX(40px); }
+    100% { transform: translateX(-40px); }
+  }
+
+  /* ── TECHO CON PINCHOS ── */
+  .ceiling {
+    position: absolute; top: 0; left: 0; width: 100%; height: 46px; z-index: 20;
+  }
+
+  /* ── SUELO ── */
+  .ground {
+    position: absolute; left: 0; top: 460px; bottom: 0; width: 100%;
+    background: linear-gradient(180deg, #3aa83a 0%, #2d8c2d 100%);
+    border-top: 4px solid #2a7a2a;
+    z-index: 5;
+  }
+
+  /* ── GLOBOS ── */
+  .balloon {
+    position: absolute;
+    z-index: 10;
+    border-radius: 50% 50% 48% 48% / 58% 58% 42% 42%;
+    transition: top 0.45s cubic-bezier(0.22,1,0.36,1),
+                left 0.45s cubic-bezier(0.22,1,0.36,1),
+                width 0.45s cubic-bezier(0.22,1,0.36,1),
+                height 0.45s cubic-bezier(0.22,1,0.36,1);
+    box-shadow: inset -10px -12px 24px #00000033, 0 6px 14px #00000033;
+  }
+  .balloon::before {          /* brillo */
+    content: ''; position: absolute; top: 14%; left: 20%;
+    width: 22%; height: 30%; border-radius: 50%;
+    background: #ffffff88; transform: rotate(25deg);
+  }
+  .balloon::after {           /* nudo */
+    content: ''; position: absolute; bottom: -9px; left: 50%;
+    width: 0; height: 0; transform: translateX(-50%);
+    border-left: 8px solid transparent; border-right: 8px solid transparent;
+    border-bottom: 11px solid var(--knot);
+  }
+  #balloonA { background: radial-gradient(circle at 35% 30%, #ff9ec4, #ff3d8b 60%, #c2185b); --knot: #c2185b; }
+  #balloonB { background: radial-gradient(circle at 35% 30%, #fff39a, #ffd21f 60%, #e0a100); --knot: #e0a100; }
+
+  .balloon.wobble { animation: wobble 0.45s ease-in-out; }
+  @keyframes wobble {
+    0%   { transform: scale(1) rotate(0); }
+    30%  { transform: scale(1.08) rotate(-4deg); }
+    60%  { transform: scale(0.97) rotate(3deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  .balloon.danger { animation: shake 0.12s linear infinite; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%     { transform: translateX(-2px) rotate(-1deg); }
+    75%     { transform: translateX(2px) rotate(1deg); }
+  }
+
+  .string {
+    position: absolute; width: 2px; background: #555;
+    z-index: 9; transform: translateX(-1px);
+    transition: top 0.45s cubic-bezier(0.22,1,0.36,1), height 0.45s cubic-bezier(0.22,1,0.36,1);
+  }
+
+  .balloon-emoji {
+    position: absolute; left: 50%; top: 52%;
+    transform: translate(-50%,-50%);
+    font-size: 30px; opacity: 0.9;
+    pointer-events: none;
+  }
+
+  /* ── ETIQUETAS ── */
+  .label {
+    position: absolute; top: 470px; width: 150px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    z-index: 15;
+  }
+  #labelA { left: 25px; }
+  #labelB { right: 25px; }
+  .label-name {
+    font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1.5px;
+    background: #000000bb; padding: 2px 10px; border-radius: 5px;
+  }
+  .label-name.a { color: #ff9ec4; border: 1px solid #ff3d8b66; }
+  .label-name.b { color: #ffe066; border: 1px solid #ffd21f66; }
+  .label-count {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: #fff; line-height: 1;
+    text-shadow: 0 2px 6px #000;
+  }
+  .label-bar { width: 110px; height: 6px; background: #00000055; border-radius: 3px; overflow: hidden; }
+  .label-fill { height: 100%; width: 0%; border-radius: 3px; transition: width 0.4s ease; }
+  .label-fill.a { background: linear-gradient(90deg,#ff3d8b,#ff9ec4); }
+  .label-fill.b { background: linear-gradient(90deg,#ffd21f,#fff39a); }
+
+  /* ── LIVE / STATUS ── */
+  .live-badge {
+    position: absolute; top: 52px; right: 10px;
+    background: #cc0000; color: #fff;
+    font-size: 6px; padding: 3px 6px; border-radius: 3px;
+    letter-spacing: 1px; z-index: 30;
+    animation: livePulse 1s ease-in-out infinite;
+  }
+  @keyframes livePulse {
+    0%,100% { box-shadow: 0 0 0 0 #ff000077; }
+    50%     { box-shadow: 0 0 0 4px transparent; }
+  }
+  .status-badge {
+    position: absolute; top: 54px; left: 10px;
+    font-size: 5px; z-index: 30;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #888; transition: background 0.3s; }
+  .status-dot.connected    { background: #00ff88; box-shadow: 0 0 5px #00ff88; }
+  .status-dot.disconnected { background: #ff4444; }
+  .status-text { color: #00000099; }
+
+  .title {
+    position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px;
+    color: #fff; text-shadow: 0 2px 0 #00000066, 0 0 10px #0006; z-index: 30;
+    white-space: nowrap;
+  }
+
+  /* ── INSTRUCCIONES ── */
+  .instructions {
+    position: absolute; bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 30;
+  }
+  .instr-chip {
+    background: #000000cc; border-radius: 20px;
+    padding: 3px 10px; font-size: 8px;
+    display: flex; align-items: center; gap: 4px;
+    white-space: nowrap; border: 1px solid #ffffff22;
+  }
+  .instr-chip.a { color: #ff9ec4; border-color: #ff3d8b66; }
+  .instr-chip.b { color: #ffe066; border-color: #ffd21f66; }
+
+  /* ── EFECTOS EXPLOSIÓN ── */
+  .particle, .confetti, .shard {
+    position: absolute; pointer-events: none; z-index: 40;
+  }
+  .shockwave {
+    position: absolute; pointer-events: none; z-index: 39;
+    border-radius: 50%; border: 4px solid #fff;
+  }
+  .flash {
+    position: absolute; inset: 0; background: #fff; opacity: 0;
+    pointer-events: none; z-index: 150;
+  }
+
+  .confetti-fall {
+    position: absolute; border-radius: 2px; pointer-events: none; z-index: 210;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%  { transform: translateY(-10px) rotate(0); opacity: 1; }
+    100%{ transform: translateY(750px) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── OVERLAY RESULTADO ── */
+  .result-overlay {
+    position: absolute; inset: 0;
+    background: #000000b8;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; z-index: 200;
+  }
+  .result-overlay.show { display: flex; }
+  .result-big {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 100px; color: #ffe600; line-height: 1; letter-spacing: 6px;
+    text-shadow: 0 0 40px #ffe600aa, 4px 4px 0 #000;
+    animation: pop 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards;
+  }
+  @keyframes pop {
+    0%  { transform: scale(0) rotate(-12deg); opacity: 0; }
+    70% { transform: scale(1.2) rotate(4deg); }
+    100%{ transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .result-emoji { font-size: 80px; animation: winnerBounce 0.6s ease-in-out infinite alternate; }
+  @keyframes winnerBounce {
+    from { transform: translateY(0) scale(1); }
+    to   { transform: translateY(-12px) scale(1.06); }
+  }
+  .result-text {
+    font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #fff; letter-spacing: 3px;
+    text-align: center; text-shadow: 0 0 20px #fff, 2px 2px 0 #000; line-height: 1.15;
+  }
+  .result-sub {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; text-align: center;
+  }
+  .result-cd { font-size: 10px; color: #ffffff99; margin-top: 4px; }
+  .result-cd span { color: #ffe600; font-size: 15px; }
+
+  /* ── CARTEL DE INSTRUCCIONES ── */
+  .howto {
+    position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
+    width: 372px; z-index: 8;
+    background: #000000b0; border: 1px solid #ffffff44; border-radius: 10px;
+    padding: 6px 10px 7px; text-align: center; color: #fff;
+  }
+  .howto-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 2px; color: #ffe600;
+  }
+  .howto-row { font-size: 12px; font-weight: 700; display: flex; justify-content: center; gap: 14px; margin: 2px 0; }
+  .howto-row .a { color: #ff9ec4; }
+  .howto-row .b { color: #ffe066; }
+  .howto-rule { font-size: 10.5px; opacity: 0.95; margin-top: 2px; }
+
+  /* ── PERSONAJES ── */
+  .char {
+    position: absolute; width: 64px; height: 76px; top: 384px;
+    z-index: 11; transform-origin: 50% 100%;
+  }
+  #charA { left: 68px;  --cap: #ff3d8b; --shirt: #ff6fa8; }
+  #charB { left: 273px; --cap: #ffd21f; --shirt: #ffe14d; }
+  .char svg { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 100%; }
+  .char .mouth-open { display: none; }
+  .char .char-img {
+    width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%;
+    transform-origin: 50% 100%;
+    filter: drop-shadow(0 4px 8px #00000077);
+  }
+  .char.hop svg, .char.hop .char-img { animation: charHop 0.35s ease-out; }
+  @keyframes charHop {
+    0%   { transform: translateY(0) scale(1, 1); }
+    35%  { transform: translateY(-12px) scale(0.94, 1.08); }
+    70%  { transform: translateY(0) scale(1.08, 0.94); }
+    100% { transform: translateY(0) scale(1, 1); }
+  }
+  .char.scared { animation: charTremble 0.1s linear infinite; }
+  .char.scared .mouth-smile { display: none; }
+  .char.scared .mouth-open  { display: block; }
+  @keyframes charTremble {
+    0%,100% { transform: translateX(0); }
+    25%     { transform: translateX(-1.5px); }
+    75%     { transform: translateX(1.5px); }
+  }
+  .char.down { animation: charDown 0.7s cubic-bezier(0.5,0,0.9,0.6) forwards; }
+  .char.down .mouth-smile { display: none; }
+  .char.down .mouth-open  { display: block; }
+  @keyframes charDown {
+    0%   { transform: translateY(0) rotate(0); }
+    30%  { transform: translateY(-14px) rotate(-20deg); }
+    100% { transform: translateY(2px) rotate(-88deg); }
+  }
+  .char.win { animation: charWin 0.45s ease-in-out infinite alternate; }
+  @keyframes charWin {
+    from { transform: translateY(0) scale(1); }
+    to   { transform: translateY(-20px) scale(1.06); }
+  }
+
+  /* popup regalo */
+  .gift-popup {
+    position: absolute; pointer-events: none;
+    z-index: 50; font-size: 10px;
+    color: #fff; text-shadow: 0 0 8px #000, 0 1px 3px #000;
+    animation: giftFloat 1.6s ease-out forwards;
+    white-space: nowrap;
+  }
+  @keyframes giftFloat {
+    0%  { opacity:1; transform: translateY(0) scale(1); }
+    60% { opacity:1; transform: translateY(-30px) scale(1.2); }
+    100%{ opacity:0; transform: translateY(-60px) scale(0.8); }
+  }
+</style>
+</head>
+<body>
+<div id="game">
+
+  <!-- NUBES -->
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+
+  <!-- TECHO CON PINCHOS -->
+  <svg class="ceiling" viewBox="0 0 405 46" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <rect x="0" y="0" width="405" height="22" fill="#3a3f4b"/>
+    <rect x="0" y="18" width="405" height="4" fill="#23262e"/>
+    <g fill="#c9ced8" stroke="#6b7280" stroke-width="1">
+      <polygon points="0,22 15,46 30,22"/>
+      <polygon points="30,22 45,46 60,22"/>
+      <polygon points="60,22 75,46 90,22"/>
+      <polygon points="90,22 105,46 120,22"/>
+      <polygon points="120,22 135,46 150,22"/>
+      <polygon points="150,22 165,46 180,22"/>
+      <polygon points="180,22 195,46 210,22"/>
+      <polygon points="210,22 225,46 240,22"/>
+      <polygon points="240,22 255,46 270,22"/>
+      <polygon points="270,22 285,46 300,22"/>
+      <polygon points="300,22 315,46 330,22"/>
+      <polygon points="330,22 345,46 360,22"/>
+      <polygon points="360,22 375,46 390,22"/>
+      <polygon points="390,22 400,46 405,30 405,22"/>
+    </g>
+  </svg>
+
+  <div class="title">🎈 BALLOONS POP 🎈</div>
+
+  <!-- SUELO -->
+  <div class="ground"></div>
+
+  <!-- HILOS -->
+  <div class="string" id="stringA"></div>
+  <div class="string" id="stringB"></div>
+
+  <!-- PERSONAJES (sostienen el hilo) -->
+  <div class="char" id="charA">
+    <svg viewBox="0 0 64 76" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22 40 L28 8 M42 40 L36 8" stroke="#f1c27d" stroke-width="6" stroke-linecap="round" fill="none"/>
+      <circle cx="28" cy="8" r="4" fill="#f1c27d"/><circle cx="36" cy="8" r="4" fill="#f1c27d"/>
+      <rect x="22" y="58" width="8" height="16" fill="#2b3a67"/><rect x="34" y="58" width="8" height="16" fill="#2b3a67"/>
+      <ellipse cx="26" cy="74" rx="7" ry="3" fill="#222"/><ellipse cx="38" cy="74" rx="7" ry="3" fill="#222"/>
+      <rect x="18" y="36" width="28" height="24" rx="6" fill="var(--shirt)"/>
+      <circle cx="32" cy="26" r="12" fill="#f1c27d"/>
+      <path d="M20 24 A12 12 0 0 1 44 24 Z" fill="var(--cap)"/>
+      <rect x="30" y="22" width="18" height="4" rx="2" fill="var(--cap)"/>
+      <circle cx="28" cy="28" r="1.8" fill="#222"/><circle cx="36" cy="28" r="1.8" fill="#222"/>
+      <path class="mouth-smile" d="M27 33 Q32 37 37 33" stroke="#222" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <ellipse class="mouth-open" cx="32" cy="34" rx="3" ry="4" fill="#7a1f1f"/>
+    </svg>
+  </div>
+  <div class="char" id="charB">
+    <svg viewBox="0 0 64 76" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22 40 L28 8 M42 40 L36 8" stroke="#c68642" stroke-width="6" stroke-linecap="round" fill="none"/>
+      <circle cx="28" cy="8" r="4" fill="#c68642"/><circle cx="36" cy="8" r="4" fill="#c68642"/>
+      <rect x="22" y="58" width="8" height="16" fill="#3b3b3b"/><rect x="34" y="58" width="8" height="16" fill="#3b3b3b"/>
+      <ellipse cx="26" cy="74" rx="7" ry="3" fill="#222"/><ellipse cx="38" cy="74" rx="7" ry="3" fill="#222"/>
+      <rect x="18" y="36" width="28" height="24" rx="6" fill="var(--shirt)"/>
+      <circle cx="32" cy="26" r="12" fill="#c68642"/>
+      <path d="M20 24 A12 12 0 0 1 44 24 Z" fill="var(--cap)"/>
+      <rect x="16" y="22" width="18" height="4" rx="2" fill="var(--cap)"/>
+      <circle cx="28" cy="28" r="1.8" fill="#222"/><circle cx="36" cy="28" r="1.8" fill="#222"/>
+      <path class="mouth-smile" d="M27 33 Q32 37 37 33" stroke="#222" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <ellipse class="mouth-open" cx="32" cy="34" rx="3" ry="4" fill="#7a1f1f"/>
+    </svg>
+  </div>
+
+  <!-- GLOBOS -->
+  <div class="balloon" id="balloonA"><div class="balloon-emoji">🌹</div></div>
+  <div class="balloon" id="balloonB"><div class="balloon-emoji">🌽</div></div>
+
+  <!-- ETIQUETAS -->
+  <div class="label" id="labelA">
+    <div class="label-name a">🌹 GLOBO A</div>
+    <div class="label-count" id="countA">0 / 20</div>
+    <div class="label-bar"><div class="label-fill a" id="barA"></div></div>
+  </div>
+  <div class="label" id="labelB">
+    <div class="label-name b">🌽 GLOBO B</div>
+    <div class="label-count" id="countB">0 / 20</div>
+    <div class="label-bar"><div class="label-fill b" id="barB"></div></div>
+  </div>
+
+  <div class="live-badge">● LIVE</div>
+  <div class="status-badge">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Conectando...</span>
+  </div>
+
+  <div class="howto">
+    <div class="howto-title">¿CÓMO JUGAR?</div>
+    <div class="howto-row">
+      <span class="a">🌹 ROSA = infla el globo A</span>
+      <span class="b">🌽 MAZORCA = infla el globo B</span>
+    </div>
+    <div class="howto-rule">💥 El primer globo en tocar el techo EXPLOTA y pierde la ronda</div>
+  </div>
+
+  <div class="flash" id="flash"></div>
+
+  <!-- RESULTADO -->
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-big">¡BUM!</div>
+    <div class="result-emoji" id="resultEmoji"></div>
+    <div class="result-text" id="resultText"></div>
+    <div class="result-sub" id="resultSub"></div>
+    <div class="result-cd">Nueva ronda en <span id="cdNum">10</span>s</div>
+  </div>
+
+</div>
+<script>
+const GAME_W     = 405;
+const GAME_H     = 720;
+const POP_GIFTS  = 20;      // regalos necesarios para que el globo toque el techo
+
+// Geometría de los globos
+const CEILING_Y  = 40;      // y donde el techo (sin pinchos) queda "tocado"
+const FEET_Y     = 460;             // y de los pies de los personajes (más arriba = no los tapa el chat)
+const ANCHOR_Y   = FEET_Y - 68;     // manos del personaje, donde se sostiene el hilo
+const KNOT_START = ANCHOR_Y - 54;   // y del nudo con el globo desinflado
+const H_START = 84,  H_END = 214;
+const W_START = 70,  W_END = 170;
+// El nudo sube de 600 a (CEILING_Y + H_END) = 254 → la parte superior toca el techo
+const KNOT_END = CEILING_Y + H_END;
+const CX = { A: 100, B: 305 };
+
+const state = { A: 0, B: 0, loser: null, cd: null };
+
+const GIFT_INFO = {
+  A: { emoji: '🌹', name: 'GLOBO A', colors: ['#ff3d8b','#ff9ec4','#c2185b','#ffffff'] },
+  B: { emoji: '🌽', name: 'GLOBO B', colors: ['#ffd21f','#fff39a','#e0a100','#ffffff'] }
+};
+
+// ── IMÁGENES DE LOS PERSONAJES ──
+// Pon aquí la URL (o ruta relativa) de tu imagen, de preferencia PNG con fondo transparente.
+// Si lo dejas vacío ('') o la imagen no carga, se usa el personaje dibujado por defecto.
+const CHAR_IMG = {
+  A: 'https://balloonspopcol.wuaze.com/images/personajeA.png',   // globo A (izquierda, Rosa)
+  B: 'https://balloonspopcol.wuaze.com/images/personajeB.png'    // globo B (derecha, Mazorca)
+};
+const CHAR_IMG_W = 82, CHAR_IMG_H = 92;   // tamaño de la imagen en el juego (ajústalo a gusto)
+
+function applyCharImages() {
+  ['A', 'B'].forEach(k => {
+    const url = (CHAR_IMG[k] || '').trim();
+    if (!url) return;
+    const ch  = document.getElementById('char' + k);
+    const svg = ch.querySelector('svg');
+    // Si es una URL completa se usa tal cual; si es un archivo local, se prueban varias extensiones
+    const exts = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'PNG', 'JPG', 'JPEG', 'WEBP'];
+    const hasExt = /\.(png|jpe?g|webp|gif)$/i.test(url);
+    const base = hasExt ? url.replace(/\.(png|jpe?g|webp|gif)$/i, '') : url;
+    const candidates = /^https?:\/\//i.test(url)
+      ? [url]
+      : [url, ...exts.map(e => base + '.' + e)].filter((v, i, a) => a.indexOf(v) === i);
+
+    let idx = 0;
+    const tryNext = () => {
+      if (idx >= candidates.length) {
+        console.warn('No se encontró la imagen del personaje ' + k + '. Probé:', candidates);
+        const w = document.createElement('div');
+        w.textContent = '⚠ No carga ' + url;
+        w.style.cssText = 'position:absolute;z-index:300;left:6px;top:' + (k === 'A' ? 84 : 98) +
+          'px;font-size:8px;color:#fff;background:#c00;padding:2px 5px;border-radius:3px;';
+        document.getElementById('game').appendChild(w);
+        return;
+      }
+      const img = new Image();
+      img.className = 'char-img';
+      img.alt = 'personaje ' + k;
+      img.onload = () => {
+        svg.style.display = 'none';
+        ch.style.width  = CHAR_IMG_W + 'px';
+        ch.style.height = CHAR_IMG_H + 'px';
+        ch.style.left   = (CX[k] - CHAR_IMG_W / 2) + 'px';
+        ch.style.top    = (FEET_Y - CHAR_IMG_H) + 'px';
+        ch.appendChild(img);
+      };
+      img.onerror = tryNext;
+      const c = candidates[idx++];
+      img.src = c + (c.includes('?') ? '&' : '?') + 'v=' + Date.now();   // evita imágenes viejas en caché
+    };
+    tryNext();
+  });
+}
+
+function scaleGame() {
+  document.getElementById('game').style.transform =
+    `scale(${window.innerWidth/GAME_W}, ${window.innerHeight/GAME_H})`;
+}
+
+const pct = (k) => Math.min(state[k], POP_GIFTS) / POP_GIFTS;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function renderBalloon(k) {
+  const p = pct(k);
+  const h = lerp(H_START, H_END, p);
+  const w = lerp(W_START, W_END, p);
+  const knotY = lerp(KNOT_START, KNOT_END, p);
+  const b = document.getElementById('balloon' + k);
+  const s = document.getElementById('string' + k);
+  b.style.width  = w + 'px';
+  b.style.height = h + 'px';
+  b.style.left   = (CX[k] - w / 2) + 'px';
+  b.style.top    = (knotY - h) + 'px';
+  s.style.left   = CX[k] + 'px';
+  s.style.top    = knotY + 'px';
+  s.style.height = (ANCHOR_Y - knotY) + 'px';
+  const danger = state[k] >= POP_GIFTS - 3 && !state.loser;
+  b.classList.toggle('danger', danger);
+  document.getElementById('char' + k).classList.toggle('scared', danger);
+}
+
+function advance(k, sender) {
+  if (state.loser) return;
+  state[k] = Math.min(state[k] + 1, POP_GIFTS);
+  const val = state[k];
+
+  renderBalloon(k);
+  document.getElementById('count' + k).textContent = `${val} / ${POP_GIFTS}`;
+  document.getElementById('bar' + k).style.width = (val / POP_GIFTS * 100) + '%';
+
+  const b = document.getElementById('balloon' + k);
+  b.classList.remove('wobble'); void b.offsetWidth; b.classList.add('wobble');
+  setTimeout(() => b.classList.remove('wobble'), 480);
+
+  const ch = document.getElementById('char' + k);
+  ch.classList.remove('hop'); void ch.offsetWidth; ch.classList.add('hop');
+  setTimeout(() => ch.classList.remove('hop'), 400);
+
+  showPopup(k, GIFT_INFO[k].emoji, sender);
+
+  playSound('inflate', () => sfxInflate(k, pct(k)));
+  if (val >= POP_GIFTS - 3 && val < POP_GIFTS) setTimeout(() => { if (!muted && SOUND_ON) sfxTick(); }, 120);
+
+  if (val >= POP_GIFTS) setTimeout(() => popBalloon(k), 500);
+}
+
+function showPopup(k, emoji, sender) {
+  const popup = document.createElement('div');
+  popup.className = 'gift-popup';
+  popup.textContent = `${emoji} ${sender || 'Alguien'}`;
+  popup.style.left = (CX[k] - 30) + 'px';
+  popup.style.top  = (FEET_Y + 80) + 'px';
+  document.getElementById('game').appendChild(popup);
+  setTimeout(() => popup.remove(), 1700);
+}
+
+// ── EXPLOSIÓN ──
+function popBalloon(k) {
+  if (state.loser) return;
+  state.loser = k;
+  playSound('pop', sfxPop);
+  const b = document.getElementById('balloon' + k);
+  const rect = {
+    x: parseFloat(b.style.left), y: parseFloat(b.style.top),
+    w: parseFloat(b.style.width), h: parseFloat(b.style.height)
+  };
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const colors = GIFT_INFO[k].colors;
+  const game = document.getElementById('game');
+
+  b.classList.remove('danger', 'wobble');
+  b.style.visibility = 'hidden';
+
+  // el que perdió se cae del susto, el otro celebra
+  const winnerKey = k === 'A' ? 'B' : 'A';
+  const chLoser  = document.getElementById('char' + k);
+  const chWinner = document.getElementById('char' + winnerKey);
+  chLoser.className  = 'char down';
+  chWinner.className = 'char win';
+  document.getElementById('string' + k).style.opacity = '0.3';
+
+  // flash
+  const fl = document.getElementById('flash');
+  fl.animate([{ opacity: 0.85 }, { opacity: 0 }], { duration: 350, easing: 'ease-out' });
+
+  // onda expansiva
+  for (let i = 0; i < 2; i++) {
+    const sw = document.createElement('div');
+    sw.className = 'shockwave';
+    sw.style.left = (cx - 10) + 'px';
+    sw.style.top  = (cy - 10) + 'px';
+    sw.style.width = sw.style.height = '20px';
+    game.appendChild(sw);
+    const sc = (rect.w / 20) * (1.6 + i * 0.7);
+    sw.animate(
+      [{ transform: 'scale(0.3)', opacity: 0.9 }, { transform: `scale(${sc})`, opacity: 0 }],
+      { duration: 600 + i * 200, delay: i * 120, easing: 'ease-out', fill: 'forwards' }
+    ).onfinish = () => sw.remove();
+  }
+
+  // trozos de goma (fragmentos del globo)
+  for (let i = 0; i < 22; i++) {
+    const sh = document.createElement('div');
+    sh.className = 'shard';
+    const size = 10 + Math.random() * 22;
+    sh.style.width  = size + 'px';
+    sh.style.height = size * 0.6 + 'px';
+    sh.style.left = (cx - size / 2 + (Math.random() - 0.5) * rect.w * 0.6) + 'px';
+    sh.style.top  = (cy - size / 2 + (Math.random() - 0.5) * rect.h * 0.6) + 'px';
+    sh.style.background = colors[i % 3];
+    sh.style.borderRadius = '50% 10% 50% 10%';
+    game.appendChild(sh);
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 80 + Math.random() * 200;
+    sh.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist + 160}px) rotate(${Math.random() * 900 - 450}deg)`, opacity: 0 }
+    ], { duration: 1100 + Math.random() * 700, easing: 'cubic-bezier(0.2,0.6,0.4,1)', fill: 'forwards' })
+      .onfinish = () => sh.remove();
+  }
+
+  // partículas brillantes
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 4 + Math.random() * 8;
+    p.style.width = p.style.height = size + 'px';
+    p.style.left = (cx - size / 2) + 'px';
+    p.style.top  = (cy - size / 2) + 'px';
+    p.style.borderRadius = '50%';
+    const c = colors[Math.floor(Math.random() * colors.length)];
+    p.style.background = c;
+    p.style.boxShadow = `0 0 8px ${c}`;
+    game.appendChild(p);
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 260;
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0)`, opacity: 0 }
+    ], { duration: 700 + Math.random() * 700, easing: 'cubic-bezier(0.1,0.7,0.3,1)', fill: 'forwards' })
+      .onfinish = () => p.remove();
+  }
+
+  // confeti saliendo del globo
+  const confColors = ['#ffe600','#75d4ff','#ff4444','#fff','#00ff88','#ff9900','#cc44ff', ...colors];
+  for (let i = 0; i < 50; i++) {
+    const c = document.createElement('div');
+    c.className = 'particle';
+    const w = 5 + Math.random() * 8;
+    c.style.width = w + 'px';
+    c.style.height = (w * 1.6) + 'px';
+    c.style.left = (cx - w / 2) + 'px';
+    c.style.top  = (cy - w) + 'px';
+    c.style.background = confColors[Math.floor(Math.random() * confColors.length)];
+    c.style.borderRadius = '2px';
+    game.appendChild(c);
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.4;
+    const dist = 100 + Math.random() * 240;
+    c.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist + 300}px) rotate(${Math.random() * 1080}deg)`, opacity: 0.9 }
+    ], { duration: 1500 + Math.random() * 1000, easing: 'cubic-bezier(0.2,0.6,0.5,1)', fill: 'forwards' })
+      .onfinish = () => c.remove();
+  }
+
+  // sacudida de pantalla
+  game.animate([
+    { transform: game.style.transform + ' translate(0,0)' },
+    { transform: game.style.transform + ' translate(-6px,4px)' },
+    { transform: game.style.transform + ' translate(5px,-5px)' },
+    { transform: game.style.transform + ' translate(-3px,2px)' },
+    { transform: game.style.transform + ' translate(0,0)' }
+  ], { duration: 350 });
+
+  setTimeout(() => showResult(k), 1100);
+}
+
+function showResult(loser) {
+  const winner = loser === 'A' ? 'B' : 'A';
+  document.getElementById('resultEmoji').textContent = GIFT_INFO[winner].emoji;
+  document.getElementById('resultText').innerHTML =
+    `💥 ${GIFT_INFO[loser].name} EXPLOTÓ<br>PIERDE LA RONDA`;
+  const sub = document.getElementById('resultSub');
+  sub.textContent = `🏆 ¡GANA ${GIFT_INFO[winner].name}!`;
+  sub.style.color = winner === 'A' ? '#ff9ec4' : '#ffe066';
+  document.getElementById('resultOverlay').classList.add('show');
+  playSound('win', sfxWin);
+  spawnConfetti();
+  startCd(10);
+}
+
+function spawnConfetti() {
+  const colors = ['#ffe600','#75d4ff','#ff4444','#fff','#00ff88','#ff9900','#cc44ff'];
+  const game = document.getElementById('game');
+  for (let i = 0; i < 70; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.className = 'confetti-fall';
+      c.style.left = Math.random() * GAME_W + 'px';
+      c.style.top  = '-10px';
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      c.style.width  = (5 + Math.random() * 9) + 'px';
+      c.style.height = (5 + Math.random() * 9) + 'px';
+      c.style.animationDuration = (1.5 + Math.random() * 2.5) + 's';
+      game.appendChild(c);
+      setTimeout(() => c.remove(), 4500);
+    }, i * 35);
+  }
+}
+
+function startCd(sec) {
+  clearInterval(state.cd);
+  const el = document.getElementById('cdNum');
+  el.textContent = sec;
+  state.cd = setInterval(() => {
+    sec--;
+    el.textContent = sec;
+    if (sec <= 0) { clearInterval(state.cd); resetGame(); }
+  }, 1000);
+}
+
+function resetGame() {
+  clearInterval(state.cd);
+  state.loser = null; state.A = 0; state.B = 0;
+  document.getElementById('resultOverlay').classList.remove('show');
+  ['A', 'B'].forEach(k => {
+    const b = document.getElementById('balloon' + k);
+    b.style.visibility = 'visible';
+    document.getElementById('char' + k).className = 'char';
+    document.getElementById('string' + k).style.opacity = '1';
+    document.getElementById('count' + k).textContent = `0 / ${POP_GIFTS}`;
+    document.getElementById('bar' + k).style.width = '0%';
+    renderBalloon(k);
+  });
+}
+
+// ── SONIDOS ──
+// Por defecto los sonidos se generan solos (no necesitas archivos).
+// Si quieres tus propios sonidos, pon la ruta de un .mp3/.wav (ej: 'sounds/pop.mp3'). Vacío = sonido automático.
+const SOUND_ON = true;      // false = juego sin sonido
+const VOLUME   = 0.7;       // 0 a 1
+const SOUND_FILES = { inflate: '', pop: '', win: '' };
+
+let audioCtx = null, muted = false;
+function getCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+// Los navegadores piden un clic o tecla para activar el audio (en OBS normalmente no hace falta)
+['pointerdown', 'keydown'].forEach(ev => window.addEventListener(ev, () => getCtx()));
+
+function tone(freq, dur, type, vol, delay, endFreq) {
+  const ctx = getCtx(); if (!ctx) return;
+  const t0 = ctx.currentTime + (delay || 0);
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, (vol || 0.3) * VOLUME), t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.03);
+}
+function noise(dur, vol, delay, filterType, freq, endFreq) {
+  const ctx = getCtx(); if (!ctx) return;
+  const t0 = ctx.currentTime + (delay || 0);
+  const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const f = ctx.createBiquadFilter(); f.type = filterType || 'lowpass';
+  f.frequency.setValueAtTime(freq || 2000, t0);
+  if (endFreq) f.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(Math.max(0.0002, (vol || 0.3) * VOLUME), t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f); f.connect(g); g.connect(ctx.destination);
+  src.start(t0);
+}
+
+function sfxInflate(k, p) {          // bombeo: sube de tono mientras el globo crece
+  const base = (k === 'A' ? 330 : 420) * (1 + p * 0.9);
+  tone(base, 0.16, 'triangle', 0.35, 0, base * 1.5);
+  noise(0.14, 0.25, 0, 'bandpass', 1500, 3500);
+}
+function sfxTick() { tone(1100, 0.07, 'square', 0.18); }   // aviso: ya casi explota
+function sfxPop() {                  // explosión
+  noise(0.4, 0.9, 0, 'highpass', 800);
+  noise(0.28, 0.8, 0, 'lowpass', 1400, 100);
+  tone(160, 0.38, 'sine', 0.9, 0, 35);
+  for (let i = 0; i < 6; i++) tone(1200 + Math.random() * 1800, 0.08, 'sine', 0.15, 0.08 + i * 0.05);
+}
+function sfxWin() {                  // fanfarria del ganador
+  [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => tone(n, 0.22, 'triangle', 0.35, i * 0.13));
+  tone(1046.5, 0.55, 'triangle', 0.3, 0.52);
+  tone(783.99, 0.55, 'triangle', 0.25, 0.52);
+}
+function playSound(name, synthFn) {
+  if (!SOUND_ON || muted) return;
+  const file = SOUND_FILES[name];
+  if (!file) { synthFn(); return; }
+  let done = false;
+  const fallback = () => { if (!done) { done = true; synthFn(); } };
+  try {
+    const a = new Audio(file);
+    a.volume = VOLUME;
+    a.onerror = fallback;
+    a.play().catch(fallback);
+  } catch (e) { fallback(); }
+}
+
+// ── MODO DEBUG: abre el juego con  ?debug=1  al final del enlace ──
+const DEBUG = /[?&]debug/.test(location.search);
+let dbgEl = null;
+function dbg(t) {
+  if (!DEBUG) return;
+  if (!dbgEl) {
+    dbgEl = document.createElement('div');
+    dbgEl.style.cssText = 'position:absolute;z-index:400;left:4px;top:110px;width:270px;font-size:8px;' +
+      'color:#fff;background:#000c;padding:3px 5px;border-radius:3px;word-break:break-all;';
+    document.getElementById('game').appendChild(dbgEl);
+  }
+  dbgEl.textContent = t;
+}
+
+// ── TIKFINITY ──
+let ws = null, reconnT = null;
+function connect() {
+  setStatus('connecting');
+  try {
+    ws = new WebSocket('ws://localhost:21213');
+    ws.onopen    = () => { setStatus('connected'); clearTimeout(reconnT); dbg('Conectado a Tikfinity. Esperando regalos...'); };
+    ws.onclose   = () => { setStatus('disconnected'); dbg('Sin conexión con Tikfinity (¿está abierto y conectado al live?)'); reconnT = setTimeout(connect, 3000); };
+    ws.onerror   = () => ws.close();
+    ws.onmessage = (e) => { dbg('Evento recibido: ' + String(e.data).slice(0, 220)); try { handleEvent(JSON.parse(e.data)); } catch (_) {} };
+  } catch (e) { setStatus('disconnected'); reconnT = setTimeout(connect, 3000); }
+}
+
+function handleEvent(msg) {
+  if (state.loser) return;
+  const type = (msg.event || msg.type || '').toLowerCase();
+  const data = msg.data || msg;
+  const sender = data.senderDisplayName || data.displayName || data.nickname || data.uniqueId || 'Alguien';
+  if (!type.includes('gift')) return;
+
+  // Ignorar combos en progreso: solo procesar cuando el combo termina
+  const isComboInProgress = data.repeatEnd === false || data.giftType === 2;
+  if (isComboInProgress) return;
+
+  const gift = String(data.giftName || data.gift_name || (data.gift && data.gift.name) || data.name || '').toLowerCase();
+  const reps = data.repeatCount || data.repeat_count || 1;
+  for (let r = 0; r < reps; r++) {
+    setTimeout(() => {
+      if (gift.includes('rosa') || gift.includes('rose')) advance('A', sender);
+      else if (gift.includes('maiz') || gift.includes('maíz') || gift.includes('corn')) advance('B', sender);
+    }, r * 200);
+  }
+}
+
+function setStatus(s) {
+  document.getElementById('statusDot').className = 'status-dot ' + (s === 'connected' ? 'connected' : 'disconnected');
+  document.getElementById('statusText').textContent =
+    s === 'connected' ? 'Tikfinity OK' : s === 'disconnected' ? 'Sin conexión' : 'Conectando...';
+}
+
+function startDemo() {
+  setInterval(() => {
+    if (state.loser) return;
+    Math.random() > .5 ? advance('A', 'demo') : advance('B', 'demo');
+  }, 500);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') resetGame();
+  if (e.key === 'd' || e.key === 'D') startDemo();
+  if (e.key === 'm' || e.key === 'M') muted = !muted;   // silenciar / activar sonido
+  if (e.key === 'a' || e.key === 'A') advance('A', 'test');
+  if (e.key === 'b' || e.key === 'B') advance('B', 'test');
+});
+window.addEventListener('resize', scaleGame);
+
+scaleGame();
+applyCharImages();
+renderBalloon('A');
+renderBalloon('B');
+connect();
+</script>
+</body>
+</html>
